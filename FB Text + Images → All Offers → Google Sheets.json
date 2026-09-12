@@ -1,0 +1,903 @@
+{
+  "name": "FB Text + Images → All Offers → Google Sheets",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger (Test)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2912,
+        -800
+      ],
+      "id": "8f18f738-9aa2-4ef6-b2ce-0181d2a56606"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "d27b18b7-17af-4968-91f0-116a8466ac06",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3584,
+        -1184
+      ],
+      "webhookId": "f1a4ad38-535e-4348-a7e4-8dd3617c7cf1",
+      "credentials": {
+        "telegramApi": {
+          "id": "BWcgIGpZ1v6qwj4q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json.message || {};\nconst text = (msg.text || '').trim().toLowerCase();\nconst runKeywords = ['/run', 'run', 'start', 'শুরু', 'রান'];\nconst isRunCommand = runKeywords.some(k => text === k || text.startsWith(k + ' '));\nreturn [{\n  json: {\n    isRunCommand,\n    text,\n    telegramChatId: msg.chat?.id || '',\n    telegramUserId: msg.from?.id || '',\n    telegramUsername: msg.from?.username || ''\n  }\n}];"
+      },
+      "id": "f2a5d562-41bd-4915-b4b5-59d3aaabe79b",
+      "name": "Code - Extract Telegram Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3360,
+        -1184
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.isRunCommand }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2f2dbaad-6839-4e91-a01e-97e311f53961",
+      "name": "IF - Is Run Command",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -3136,
+        -1184
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegramChatId }}",
+        "text": "Data collection started. You will get a Telegram message when it is done.",
+        "additionalFields": {}
+      },
+      "id": "24874f70-cebf-44ab-8c12-679ccc38c8c0",
+      "name": "Telegram - Run Started",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -2912,
+        -1376
+      ],
+      "webhookId": "3178060d-3279-4e64-8189-43ea377ef56e",
+      "credentials": {
+        "telegramApi": {
+          "id": "BWcgIGpZ1v6qwj4q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegramChatId }}",
+        "text": "Send /run to start Facebook data collection.",
+        "additionalFields": {}
+      },
+      "id": "11d2fbb0-8a92-4847-ae78-6796d6feb40e",
+      "name": "Telegram - Ignored Command",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -2912,
+        -1184
+      ],
+      "webhookId": "9358a542-48c0-4f15-803c-78accdfa38e3",
+      "credentials": {
+        "telegramApi": {
+          "id": "BWcgIGpZ1v6qwj4q",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "88c75dba-c2c9-4338-980b-594ce000f336",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2912,
+        -992
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/actors/apify~facebook-groups-scraper/run-sync-get-dataset-items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer apify_api_gMm2vVpDSMkaz47Z6N18q1DdXy3LNa1SiV85"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"startUrls\":[{\"url\":\"https://www.facebook.com/groups/562170921088637\"}],\"resultsLimit\":1,\"viewOption\":\"CHRONOLOGICAL\"}",
+        "options": {}
+      },
+      "id": "ec73f053-671f-4693-bee5-e1600b9b9454",
+      "name": "Facebook Data Provider",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2688,
+        -992
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\n\nfor (const item of $input.all()) {\n  const p = item.json || {};\n\n  // Facebook post text\n  const text =\n    p.text ??\n    p.message ??\n    p.postText ??\n    p.content ??\n    p.description ??\n    p.caption ??\n    '';\n\n  // Facebook post information\n  const post_id =\n    p.id ??\n    p.postId ??\n    p.post_id ??\n    '';\n\n  const post_url =\n    p.facebookUrl ??\n    p.facebook_url ??\n    p.url ??\n    '';\n\n  const author =\n    p.user?.name ??\n    p.author?.name ??\n    p.author ??\n    '';\n\n  const post_date =\n    p.date ??\n    p.created_time ??\n    p.createdTime ??\n    p.time ??\n    '';\n\n  // Collect image URLs\n  const urls = [];\n\n  function addUrl(value) {\n    if (!value) return;\n\n    // Array\n    if (Array.isArray(value)) {\n      for (const v of value) {\n        addUrl(v);\n      }\n      return;\n    }\n\n    // String URL\n    if (typeof value === 'string') {\n      if (value.startsWith('http://') || value.startsWith('https://')) {\n        urls.push(value);\n      }\n      return;\n    }\n\n    // Object\n    if (typeof value === 'object') {\n      addUrl(value.url);\n      addUrl(value.imageUrl);\n      addUrl(value.image_url);\n      addUrl(value.displayUrl);\n      addUrl(value.src);\n      addUrl(value.thumbnail);\n    }\n  }\n\n  // Check all common image/media fields\n  addUrl(p.imageUrl);\n  addUrl(p.image_url);\n  addUrl(p.images);\n  addUrl(p.photos);\n  addUrl(p.media);\n  addUrl(p.attachments);\n  addUrl(p.photo);\n  addUrl(p.thumbnail);\n  addUrl(p.displayUrl);\n  addUrl(p.display_url);\n\n  // Remove duplicate URLs\n  const image_urls = [...new Set(urls)];\n\n  out.push({\n    json: {\n      post_id,\n      post_url,\n      author,\n      post_date,\n      post_text: String(text),\n      image_urls\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "7f7d1d8c-5c23-43ab-944c-4f1b7ab06880",
+      "name": "Normalize Post + Images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2464,
+        -992
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const out=[]; for(const item of $input.all()){const j=item.json, imgs=Array.isArray(j.image_urls)?j.image_urls:[]; if(!imgs.length) out.push({json:{...j,image_url:'',image_index:0}}); else imgs.forEach((u,i)=>out.push({json:{...j,image_url:u,image_index:i+1}}));} return out;"
+      },
+      "id": "4824a4e3-fc7c-423c-a5ac-95dc3099402b",
+      "name": "One Item Per Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2240,
+        -992
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.image_url}}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "id": "51ab4d46-96ef-434a-9f76-480a54e49885"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3bbface6-6a71-419d-89fa-f56e127ca198",
+      "name": "Has Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2016,
+        -992
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.image_url}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "b78e6560-c704-4db5-8534-ff99699a3033",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1792,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const i=$input.first(), b=i.binary?.data; if(!b) throw new Error('No image binary'); return [{json:{...i.json,image_base64:b.data,image_mime_type:b.mimeType||'image/jpeg'}}];"
+      },
+      "id": "abf448e6-8e72-4a55-bae8-02a294a5a6d6",
+      "name": "Prepare Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1568,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const i=$input.first(); return [{json:{...i.json,prompt:`Read EVERYTHING in this Facebook post and image. Extract EVERY distinct telecom offer. Never skip or merge offers. Use only visible information. Missing fields = empty string. Return ONLY valid JSON: {\"offers\":[{\"operator\":\"\",\"offer\":\"\",\"price\":\"\",\"validity\":\"\",\"data\":\"\",\"minutes\":\"\",\"sms\":\"\",\"recharge_amount\":\"\",\"app\":\"\",\"eligibility\":\"\",\"ussd_code\":\"\",\"conditions\":\"\",\"location\":\"\",\"date\":\"\",\"other_details\":\"\"}]} If there are 50 offers, return 50 objects. Preserve Bengali text and numbers. POST TEXT:\\n${i.json.post_text||''}`}}];"
+      },
+      "id": "7838da5e-88db-4b03-ae36-6eed05883bd9",
+      "name": "Build Vision Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1344,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Information Extractor output থেকে offers নেওয়া\nconst input = $input.first().json;\n\n// বিভিন্ন সম্ভাব্য output structure support করবে\nlet offers =\n  input.output?.offers ||\n  input.offers ||\n  input.data?.offers ||\n  [];\n\n// যদি offers array না হয়, empty array\nif (!Array.isArray(offers)) {\n  offers = [];\n}\n\n// Original Facebook post information নেওয়া\nlet source = {};\n\ntry {\n  source = $('Build Vision Prompt').first().json || {};\n} catch (e) {\n  source = {};\n}\n\n// যদি Build Vision Prompt node-এর data না পাওয়া যায়,\n// current input থেকেই নেওয়ার চেষ্টা\nconst postUrl =\n  source.post_url ||\n  source.postUrl ||\n  input.post_url ||\n  input.postUrl ||\n  '';\n\nconst postId =\n  source.post_id ||\n  source.postId ||\n  input.post_id ||\n  input.postId ||\n  '';\n\nconst sourceDate =\n  source.post_date ||\n  source.date ||\n  input.post_date ||\n  input.date ||\n  '';\n\n// প্রতিটি offer-কে আলাদা n8n item বানানো\nreturn offers.map((offer, index) => ({\n  json: {\n    operator: offer.operator || '',\n    offer: offer.offer || '',\n    price: offer.price || '',\n    validity: offer.validity || '',\n    data: offer.data || '',\n    minutes: offer.minutes || '',\n    sms: offer.sms || '',\n    recharge_amount: offer.recharge_amount || '',\n    app: offer.app || '',\n    eligibility: offer.eligibility || '',\n    ussd_code: offer.ussd_code || '',\n    conditions: offer.conditions || '',\n    location: offer.location || '',\n    date: offer.date || sourceDate || '',\n    other_details: offer.other_details || '',\n    \n    post_url: postUrl,\n    post_id: postId,\n    offer_index: index + 1\n  }\n}));"
+      },
+      "id": "100105ba-3df4-4632-adc3-0c99279f6eb9",
+      "name": "Parse AI JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "baebf090-fe43-4c54-9371-14d6958d9e3b",
+      "name": "Loop Over Items - 1 Offer",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -544,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const o=$input.first().json; return [{json:{product:o.operator||'',offer:o.offer||'',price:o.price||'',validity:o.validity||'',data:o.data||'',minutes:o.minutes||'',sms:o.sms||'',recharge_amount:o.recharge_amount||'',app:o.app||'',eligibility:o.eligibility||'',ussd_code:o.ussd_code||'',conditions:o.conditions||'',location:o.location||'',date:o.date||o.post_date||'',other_details:o.other_details||'',post_id:o.post_id||'',post_url:o.post_url||'',image_url:o.image_url||'',image_index:o.image_index||''}}];"
+      },
+      "id": "a4bd7a29-7156-4ed9-b7cd-a87860e74560",
+      "name": "Prepare Google Sheet Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        -1280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1FQmxM2RRPssL1rmsOXxmi4klUSkg7er32U-lfvXTqxk",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1FQmxM2RRPssL1rmsOXxmi4klUSkg7er32U-lfvXTqxk/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "product": "={{ $json.product }}",
+            "offer": "={{ $json.offer }}",
+            "price": "={{ $json.price }}",
+            "validity": "={{ $json.validity }}",
+            "data": "={{ $json.data }}",
+            "minitue": "={{ $json.minutes }}",
+            "sms": "={{ $json.sms }}",
+            "recharge amount": "={{ $json.recharge_amount }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "product",
+              "displayName": "product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "offer",
+              "displayName": "offer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "validity",
+              "displayName": "validity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "minitue",
+              "displayName": "minitue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sms",
+              "displayName": "sms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recharge amount",
+              "displayName": "recharge amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "2f8ac184-eb95-4e1a-9a1b-4f1b64239524",
+      "name": "Google Sheets - Save Each Offer",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -96,
+        -1088
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Er9fDZIMUXa1xgBA",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const j=$input.first().json; return [{json:{product:'',offer:j.post_text||'',price:'',validity:'',data:'',minutes:'',sms:'',recharge_amount:'',app:'',eligibility:'',ussd_code:'',conditions:'',location:'',date:j.post_date||'',other_details:'Text-only Facebook post',post_id:j.post_id||'',post_url:j.post_url||'',image_url:'',image_index:''}}];"
+      },
+      "id": "bb4987b7-d788-464c-b6cf-9ceea5788c9c",
+      "name": "Text Only - Prepare Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1792,
+        -896
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1zKXDOq86VjMKUPkByGWg19LXBayCq4BDibbBlpySWsw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zKXDOq86VjMKUPkByGWg19LXBayCq4BDibbBlpySWsw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "operator",
+              "displayName": "operator",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "offer",
+              "displayName": "offer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "validity",
+              "displayName": "validity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sms",
+              "displayName": "sms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "minitues",
+              "displayName": "minitues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recharge_amount",
+              "displayName": "recharge_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "app",
+              "displayName": "app",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "eligibility",
+              "displayName": "eligibility",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ef14a767-ac16-44c4-a9e7-ffd032f3e7bf",
+      "name": "Google Sheets - Text Only",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1568,
+        -896
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Er9fDZIMUXa1xgBA",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.image_urls[0] }}",
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\n  \"offers\": [\n    {\n      \"operator\": \"\",\n      \"offer\": \"\",\n      \"price\": \"\",\n      \"validity\": \"\",\n      \"data\": \"\",\n      \"minutes\": \"\",\n      \"sms\": \"\",\n      \"recharge_amount\": \"\",\n      \"app\": \"\",\n      \"eligibility\": \"\",\n      \"ussd_code\": \"\",\n      \"conditions\": \"\",\n      \"location\": \"\",\n      \"date\": \"\",\n      \"other_details\": \"\"\n    }\n  ]\n}",
+        "options": {
+          "systemPromptTemplate": "Extract every distinct telecom offer from the provided Facebook post and available image information.\n\nIMPORTANT RULES:\n\n1. Extract EVERY separate telecom offer.\n2. Never skip an offer.\n3. Never merge two separate offers into one.\n4. Use ONLY information actually visible or explicitly written in the Facebook post/image.\n5. Never guess or invent missing information.\n6. If a field is not available, return an empty string \"\".\n7. Preserve Bengali text exactly as much as possible.\n8. Preserve Bengali numerals and Arabic numerals accurately.\n9. Preserve data units such as GB, MB, মিনিট, SMS, টাকা, দিন, etc.\n10. Keep each package/offer as a separate object.\n11. If the post contains 20 offers, return 20 objects.\n12. If the post contains 50 offers, return 50 objects.\n13. The \"operator\" field should contain the telecom operator name when explicitly available.\n14. Put the complete package/offer description in \"offer\".\n15. Put the price only in \"price\".\n16. Put validity information only in \"validity\".\n17. Put internet/data amount only in \"data\".\n18. Put call/minute information only in \"minutes\".\n19. Put SMS information only in \"sms\".\n20. Put recharge requirement in \"recharge_amount\".\n21. Put app/platform requirements in \"app\".\n22. Put eligibility information in \"eligibility\".\n23. Put USSD/recharge codes in \"ussd_code\".\n24. Put restrictions or conditions in \"conditions\".\n25. Put geographic availability in \"location\".\n26. Put offer date in \"date\".\n27. Put remaining useful information in \"other_details\".\n28. Return structured data according to the provided JSON schema."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        -1088
+      ],
+      "id": "f29b395f-3949-4c40-a2c4-2af632a0dfee",
+      "name": "Information Extractor1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -1048,
+        -856
+      ],
+      "id": "460c4c48-3daf-4d43-a744-ec596815c22a",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram - Run Started').item.json.result.chat.id }}",
+        "text": "=✅ Facebook data collection complete at {{$now.toISO()}}",
+        "additionalFields": {}
+      },
+      "id": "a3260523-e94f-4559-9f2b-d2cf81699325",
+      "name": "Telegram - Notify Complete2",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        -1088
+      ],
+      "webhookId": "78da4f7b-cc46-4c20-a636-f5d9b02e815a",
+      "credentials": {
+        "telegramApi": {
+          "id": "BWcgIGpZ1v6qwj4q",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code - Extract Telegram Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Extract Telegram Command": {
+      "main": [
+        [
+          {
+            "node": "IF - Is Run Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Is Run Command": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Run Started",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram - Ignored Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Run Started": {
+      "main": [
+        [
+          {
+            "node": "Facebook Data Provider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger (Test)": {
+      "main": [
+        [
+          {
+            "node": "Facebook Data Provider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Facebook Data Provider",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Facebook Data Provider": {
+      "main": [
+        [
+          {
+            "node": "Normalize Post + Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Post + Images": {
+      "main": [
+        [
+          {
+            "node": "One Item Per Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Item Per Image": {
+      "main": [
+        [
+          {
+            "node": "Has Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Image?": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Text Only - Prepare Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Prepare Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Image": {
+      "main": [
+        [
+          {
+            "node": "Build Vision Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Vision Prompt": {
+      "main": [
+        [
+          {
+            "node": "Information Extractor1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI JSON": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items - 1 Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items - 1 Offer": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Notify Complete2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Google Sheet Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Google Sheet Row": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Save Each Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Save Each Offer": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items - 1 Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Only - Prepare Row": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Text Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Information Extractor1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Information Extractor1": {
+      "main": [
+        [
+          {
+            "node": "Parse AI JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "462b0b5e-9fb9-4f8c-9737-77b3ef262517",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "64e03258b3a29046b831372613f58e30605227f782f6b89c548b84f0ebfeebc0"
+  },
+  "nodeGroups": [],
+  "id": "RoL498SbvRVOTEgr",
+  "tags": []
+}
